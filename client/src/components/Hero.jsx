@@ -14,7 +14,7 @@ const Hero = () => {
           </h1>
           <p className="text-gray-400 text-lg">
             Transform your long URLs into concise, memorable links. Track clicks, analyze data,
-            and optimize your online presence with Shorify.
+            and optimize your online presence with Shortify.
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
             <input

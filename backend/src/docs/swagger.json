@@ -1,0 +1,719 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "The Alter Office API",
+    "version": "1.0.0",
+    "description": "API for The Alter Office"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Development server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Login successful"
+          },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "example": "1234567890" },
+              "email": { "type": "string", "example": "user@example.com" },
+              "name": { "type": "string", "example": "John Doe" }
+            }
+          },
+          "token": {
+            "type": "string",
+            "example": "eyJhbGciOiJIUzI1NiIsInR..."
+          }
+        }
+      },
+      "LogoutResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Logged out successfully"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Not authenticated"
+          }
+        }
+      },
+      "schemas": {
+        "AnalyticsData": {
+          "type": "object",
+          "properties": {
+            "totalClicks": {
+              "type": "number"
+            },
+            "uniqueClicks": {
+              "type": "number"
+            },
+            "clicksByDate": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "_id": {
+                    "type": "string"
+                  },
+                  "count": {
+                    "type": "number"
+                  }
+                }
+              }
+            },
+            "osTypeAnalytics": {
+              "type": "array"
+            },
+            "deviceTypeAnalytics": {
+              "type": "array"
+            }
+          }
+        },
+        "TopicAnalyticsData": {
+          "type": "object",
+          "properties": {
+            "totalClicks": {
+              "type": "number"
+            },
+            "uniqueClicks": {
+              "type": "number"
+            },
+            "clicksByTopic": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "_id": {
+                    "type": "string"
+                  },
+                  "count": {
+                    "type": "number"
+                  }
+                }
+              }
+            },
+            "osTypeAnalytics": {
+              "type": "array"
+            },
+            "deviceTypeAnalytics": {
+              "type": "array"
+            }
+          }
+        },
+        "AnalyticsRequest": {
+          "type": "object",
+          "properties": {
+            "alias": {
+              "type": "string"
+            },
+            "ip": {
+              "type": "string"
+            },
+            "timestamp": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "userAgent": {
+              "type": "string"
+            },
+            "topic": {
+              "type": "string"
+            }
+          },
+          "required": ["alias", "ip", "timestamp", "userAgent"]
+        }
+      }
+    }
+  },
+  "paths": {
+    "/auth/google": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Initiate Google OAuth Login",
+        "description": "Redirects the user to the Google OAuth page for authentication.",
+        "responses": {
+          "302": {
+            "description": "Redirect to Google OAuth page., Test this end point in the browser"
+          }
+        }
+      }
+    },
+    "/auth/google/callback": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Handle Google OAuth Callback",
+        "description": "Handles the callback from Google OAuth. On success, generates a JWT token.",
+        "responses": {
+          "200": {
+            "description": "Login successful, returns user information and a JWT token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Logout the User",
+        "description": "Logs out the user and clears the session.",
+        "responses": {
+          "200": {
+            "description": "Logged out successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error logging out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/short/shortURL": {
+      "post": {
+        "summary": "Create a short URL",
+        "description": "Creates a new short URL for the given long URL, optional custom alias, and topic. Requires a Bearer token for authentication.",
+        "tags": ["URL Routes"],
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "longUrl": {
+                    "type": "string",
+                    "example": "https://example.com/some-long-url",
+                    "description": "The original long URL to shorten."
+                  },
+                  "customAlias": {
+                    "type": "string",
+                    "example": "myalias",
+                    "description": "Optional custom alias for the short URL."
+                  },
+                  "topic": {
+                    "type": "string",
+                    "example": "tech",
+                    "description": "Optional topic associated with the URL."
+                  }
+                },
+                "required": ["longUrl"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Short URL created successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "shortUrl": {
+                      "type": "string",
+                      "example": "http://short.ly/abc12345"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "example": "2024-12-24T12:00:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized. Missing or invalid Bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error creating short URL.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Error creating short URL"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/short/{alias}": {
+      "get": {
+        "summary": "Redirect to long URL",
+        "description": "Redirects the user to the original long URL associated with the provided alias.",
+        "tags": ["URL Routes"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "alias",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The alias of the short URL."
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to the long URL."
+          },
+          "404": {
+            "description": "Short URL not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Short URL not found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error redirecting to URL.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Error redirecting to URL"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analytics/{alias}": {
+      "get": {
+        "summary": "Get URL Analytics",
+        "description": "Fetch analytics for a specific URL identified by its alias.",
+        "tags": ["Analytics"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "alias",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The alias of the URL to fetch analytics for."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response with URL analytics data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "totalClicks": {
+                      "type": "integer",
+                      "description": "Total number of clicks for the specific URL"
+                    },
+                    "uniqueClicks": {
+                      "type": "integer",
+                      "description": "Total number of unique clicks for the specific URL"
+                    },
+                    "clicksByDate": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "date": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "clicks": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "description": "Clicks aggregated by date for the specific URL"
+                    },
+                    "osType": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "osName": {
+                            "type": "string"
+                          },
+                          "uniqueClicks": {
+                            "type": "integer"
+                          },
+                          "uniqueUsers": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "description": "Operating system stats for the specific URL"
+                    },
+                    "deviceType": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "deviceName": {
+                            "type": "string"
+                          },
+                          "uniqueClicks": {
+                            "type": "integer"
+                          },
+                          "uniqueUsers": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "description": "Device type stats for the specific URL"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Short URL not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Short URL not found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Error retrieving URL analytics"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analytics/topic/{topic}": {
+      "get": {
+        "summary": "Get Topic-Based Analytics",
+        "description": "Fetch analytics for all URLs related to a specific topic.",
+        "tags": ["Analytics"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "topic",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The topic to filter the URLs by."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response with analytics data for the given topic",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "totalClicks": {
+                      "type": "integer",
+                      "description": "Total number of clicks for all URLs in the topic"
+                    },
+                    "uniqueClicks": {
+                      "type": "integer",
+                      "description": "Total number of unique clicks for all URLs in the topic"
+                    },
+                    "clicksByDate": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "date": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "clicks": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "description": "Clicks aggregated by date for all URLs in the topic"
+                    },
+                    "urls": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "shortUrl": {
+                            "type": "string",
+                            "description": "The short URL"
+                          },
+                          "totalClicks": {
+                            "type": "integer"
+                          },
+                          "uniqueClicks": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "description": "List of URLs with their individual click stats"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No URLs found for this topic",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "No URLs found for this topic"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Error retrieving topic analytics"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analytics/overall": {
+      "get": {
+        "summary": "Get Overall Analytics",
+        "description": "Fetch overall analytics for all URLs created by the authenticated user.",
+        "tags": ["Analytics"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Successful response with overall analytics data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "totalUrls": {
+                      "type": "integer",
+                      "description": "Total number of URLs created by the user"
+                    },
+                    "totalClicks": {
+                      "type": "integer",
+                      "description": "Total number of clicks for all URLs created by the user"
+                    },
+                    "uniqueClicks": {
+                      "type": "integer",
+                      "description": "Total number of unique clicks for all URLs created by the user"
+                    },
+                    "clicksByDate": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "date": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "clicks": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "description": "Clicks aggregated by date for all URLs created by the user"
+                    },
+                    "osType": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "osName": {
+                            "type": "string"
+                          },
+                          "uniqueClicks": {
+                            "type": "integer"
+                          },
+                          "uniqueUsers": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "description": "Operating system stats for all URLs"
+                    },
+                    "deviceType": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "deviceName": {
+                            "type": "string"
+                          },
+                          "uniqueClicks": {
+                            "type": "integer"
+                          },
+                          "uniqueUsers": {
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "description": "Device type stats for all URLs"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No URLs found for this user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "No URLs found for this user"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Error retrieving overall analytics"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,23 +1,30 @@
-// Navbar.jsx
-import React, { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { Link2 } from 'lucide-react';
-import { googleLogin, logout, setUser } from '../redux/authSlice';
+import React, { useEffect, useState } from 'react';
+import { useDispatch } from 'react-redux';
+import { googleLogin, handleGoogleCallback, logout } from '../redux/authSlice';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import ProfileButton from './profileButton';
 
 const Navbar = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { user } = useSelector((state) => state.auth);
+  const [user, setUser] = useState(null);
+
+  // Check if user is present in localStorage
+  useEffect(() => {
+    const userData = localStorage.getItem('userData');
+    if (userData) {
+      setUser(JSON.parse(userData)); // Set the user state if userData exists
+    }
+  }, []);
 
   // Handle Google login or logout
-  const handleAuthClick = async () => {
+  const handleAuthClick = () => {
     if (user) {
       dispatch(logout()); // Dispatch logout action to clear the user state
+      localStorage.removeItem('userData'); // Clear userData from localStorage
+      setUser(null); // Set user state to null after logout
     } else {
-      // Dispatch the googleLogin action which will handle redirect and login logic
-      dispatch(googleLogin());
+      dispatch(googleLogin()); // Redirect to Google login page
     }
   };
 
@@ -29,18 +36,13 @@ const Navbar = () => {
 
       if (token) {
         try {
-          // Fetch user data using the token
-          const response = await axios.get('http://localhost:5000/auth/user', {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-
-          // Dispatch action to store user data in Redux
-          dispatch(setUser({ user: response.data.user, token }));
+          // Dispatch action to handle the callback and store user/token in Redux
+          dispatch(handleGoogleCallback(token));
 
           // Redirect to HomePage
           navigate('/home');
         } catch (error) {
-          console.error('Error fetching user data:', error.message);
+          console.error('Error handling Google callback:', error.message);
         }
       }
     };
@@ -52,15 +54,20 @@ const Navbar = () => {
     <nav className="bg-black border-b border-green-500/20 px-4 py-3">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         <div className="flex items-center space-x-2">
-          <Link2 className="h-6 w-6 text-green-500" />
           <span className="text-green-500 font-bold text-xl">Shortify</span>
         </div>
-        <button
-          onClick={handleAuthClick}
-          className="bg-green-500 hover:bg-green-600 text-black font-semibold px-4 py-2 rounded-md transition-colors"
-        >
-          {user ? 'Logout' : 'Login'}
-        </button>
+        <div className="flex items-center space-x-4">
+          {user ? (
+            <ProfileButton /> // Show ProfileButton when the user is logged in
+          ) : (
+            <button
+              onClick={handleAuthClick}
+              className="bg-green-500 hover:bg-green-600 text-black font-semibold px-4 py-2 rounded-md transition-colors"
+            >
+              Login
+            </button>
+          )}
+        </div>
       </div>
     </nav>
   );

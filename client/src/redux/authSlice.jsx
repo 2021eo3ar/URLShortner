@@ -1,4 +1,4 @@
-// src/redux/appSlice.js
+// src/redux/authSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
@@ -12,34 +12,59 @@ const initialState = {
 };
 
 // Async thunk for Google login
-export const googleLogin = createAsyncThunk(`${backendUrl}/auth/googleLogin`, async (_, thunkAPI) => {
-  try {
-    // Perform the redirect action
-    window.location.href = `${backendUrl}/auth/google`;
-    // Since the actual redirection occurs outside the Redux flow, resolve the thunk with no further actions
-    return null;
-  } catch (error) {
-    const message =
-      error.response?.data?.message ||
-      error.message ||
-      'Something went wrong during Google login';
-    return thunkAPI.rejectWithValue({ message });
+export const googleLogin = createAsyncThunk(
+  'auth/googleLogin',
+  async (_, thunkAPI) => {
+    try {
+      window.location.href = `${backendUrl}/auth/google`;
+      return null; // Redirection occurs outside the Redux flow
+    } catch (error) {
+      const message =
+        error.response?.data?.message ||
+        error.message ||
+        'Something went wrong during Google login';
+      return thunkAPI.rejectWithValue({ message });
+    }
   }
-});
+);
+
+// Async thunk for handling the callback and saving the token
+export const handleGoogleCallback = createAsyncThunk(
+  'auth/handleGoogleCallback',
+  async (token, thunkAPI) => {
+    try {
+      localStorage.setItem('jwtToken', token);
+      const user = JSON.parse(atob(token.split('.')[1])); // Decode JWT payload to get user info
+      localStorage.setItem('userData', JSON.stringify(user));
+      return { user, token };
+    } catch (error) {
+      const message =
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to process Google callback';
+      return thunkAPI.rejectWithValue({ message });
+    }
+  }
+);
 
 // Async thunk for logout
-export const logout = createAsyncThunk(`${backendUrl}/auth/logout`, async (_, thunkAPI) => {
-  try {
-    await axios.get(`${backendUrl}/api/auth/logout`);
-    return null;
-  } catch (error) {
-    const message =
-      error.response?.data?.message ||
-      error.message ||
-      'Something went wrong during logout';
-    return thunkAPI.rejectWithValue({ message });
+export const logout = createAsyncThunk(
+  'auth/logout',
+  async (_, thunkAPI) => {
+    try {
+      await axios.get(`${backendUrl}/auth/logout`);
+      localStorage.removeItem('jwtToken');
+      localStorage.removeItem('userData');
+      return null;
+    } catch (error) {
+      const message =
+        error.response?.data?.message ||
+        error.message ||
+        'Something went wrong during logout';
+      return thunkAPI.rejectWithValue({ message });
+    }
   }
-});
+);
 
 const authSlice = createSlice({
   name: 'auth',
@@ -63,11 +88,23 @@ const authSlice = createSlice({
       })
       .addCase(googleLogin.fulfilled, (state) => {
         state.loading = false;
-        // Since the user is redirected, we don't set any state here
       })
       .addCase(googleLogin.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.message || 'Google login failed';
+      })
+      .addCase(handleGoogleCallback.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(handleGoogleCallback.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = action.payload.user;
+        state.token = action.payload.token;
+      })
+      .addCase(handleGoogleCallback.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || 'Failed to handle Google callback';
       })
       .addCase(logout.fulfilled, (state) => {
         state.user = null;
@@ -80,5 +117,4 @@ const authSlice = createSlice({
 });
 
 export const { setUser, clearAuthState } = authSlice.actions;
-
 export default authSlice.reducer;

@@ -3,21 +3,49 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
+const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'your_access_token_secret';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your_refresh_token_secret';
 
+/**
+ * Middleware to ensure the user is authenticated using the access token.
+ */
 export const ensureAuthenticated = (req, res, next) => {
-  // Get the token from Authorization header (Bearer token)
-  const token = req.headers['authorization']?.split(' ')[1]; // "Bearer <token>"
+  const authHeader = req.headers['authorization'];
+  const token = authHeader?.split(' ')[1]; // "Bearer <token>"
 
   if (!token) {
-    return res.status(401).json({ error: 'No token provided' });
+    return res.status(401).json({ error: 'Access token is missing or invalid' });
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded; // Attach the decoded user data to the request object
-    next(); // Proceed to the next middleware or route
+    const decoded = jwt.verify(token, JWT_ACCESS_SECRET);
+    req.user = decoded; // Attach decoded user data to the request object
+    next(); // Token is valid, proceed to the next middleware or route
   } catch (error) {
-    res.status(401).json({ error: 'Invalid or expired token' });
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        error: 'Access token has expired. Please refresh your token.',
+      });
+    }
+    res.status(401).json({ error: 'Invalid access token' });
+  }
+};
+
+/**
+ * Middleware to ensure the refresh token is valid.
+ */
+export const ensureRefreshToken = (req, res, next) => {
+  const refreshToken = req.body.refreshToken;
+
+  if (!refreshToken) {
+    return res.status(401).json({ error: 'Refresh token is missing' });
+  }
+
+  try {
+    const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+    req.user = decoded; // Attach decoded user data to the request object
+    next(); // Token is valid, proceed to the next middleware or route
+  } catch (error) {
+    res.status(401).json({ error: 'Invalid or expired refresh token' });
   }
 };

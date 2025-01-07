@@ -52,7 +52,9 @@ export const logout = createAsyncThunk(
   'auth/logout',
   async (_, thunkAPI) => {
     try {
-      await axios.get(`${backendUrl}/auth/logout`);
+      await axios.get(`${backendUrl}/auth/logout`,{
+        withCredentials : true
+      });
       localStorage.removeItem('jwtToken');
       localStorage.removeItem('userData');
       return null;

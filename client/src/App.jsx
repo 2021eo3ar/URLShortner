@@ -1,33 +1,17 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import React, { useEffect } from 'react';
 import './App.css';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import HomePage from './pages/HomePage';
 
-const PrivateRoute = ({ children }) => {
-  const { user, loading } = useSelector((state) => state.auth);
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-
-  return user ? children : <Navigate to="/" />;
-};
 
 const App = () => {
+
   return (
     <Router>
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route
-          path="/home"
-          element={
-            <PrivateRoute>
-              <HomePage />
-            </PrivateRoute>
-          }
-        />
+        <Route path="/home" element={<HomePage />} />
       </Routes>
     </Router>
   );

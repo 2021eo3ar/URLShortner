@@ -4,18 +4,19 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { logout } from '../redux/authSlice';
 
-
 const ProfileButton = () => {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
   const dispatch = useDispatch();
-
+  
   const handleLogout = async () => {
-    // Dispatch logout action
-    await dispatch(logout());
-
-    // Redirect to the landing page after logout
-    navigate('/');
+    try {
+      await dispatch(logout());
+      // Redirect to the landing page after logout
+      navigate('/');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
   };
 
   return (

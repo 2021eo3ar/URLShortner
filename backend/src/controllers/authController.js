@@ -6,23 +6,16 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// JWT Secrets
-const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'access_secret';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'refresh_secret';
+const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 
-// Generate Access Token
-const generateAccessToken = (user) => {
-  const payload = { id: user.id, email: user.email };
-  return jwt.sign(payload, JWT_ACCESS_SECRET, { expiresIn: '1h' });
-};
+if (!JWT_ACCESS_SECRET || !JWT_REFRESH_SECRET) {
+  throw new Error('Missing JWT secrets in environment variables');
+}
 
-// Generate Refresh Token
-const generateRefreshToken = (user) => {
-  const payload = { id: user.id, email: user.email };
-  return jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: '7d' }); // 7-day expiry
-};
+const generateAccessToken = (user) => jwt.sign({ id: user.id, email: user.email }, JWT_ACCESS_SECRET, { expiresIn: '1h' });
+const generateRefreshToken = (user) => jwt.sign({ id: user.id, email: user.email }, JWT_REFRESH_SECRET, { expiresIn: '7d' });
 
-// Configure Google OAuth Strategy
 passport.use(
   new GoogleStrategy(
     {
@@ -48,10 +41,7 @@ passport.use(
   )
 );
 
-// Serialize User
 passport.serializeUser((user, done) => done(null, user.id));
-
-// Deserialize User
 passport.deserializeUser(async (id, done) => {
   try {
     const user = await User.findById(id);
@@ -70,71 +60,72 @@ export const loginSuccess = async (req, res) => {
     const accessToken = generateAccessToken(req.user);
     const refreshToken = generateRefreshToken(req.user);
 
-    // Save refresh token in database
     const user = await User.findById(req.user.id);
     if (user) {
       user.refreshToken = refreshToken;
       await user.save();
     }
 
-    res.status(200).json({
-      message: 'Login successful',
-      user: req.user,
-      accessToken,
-      refreshToken,
-    });
+    res.cookie('accessToken', accessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 3600 * 1000 });
+    res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 7 * 24 * 3600 * 1000 });
+    res.redirect('http://localhost:5173/home');
   } else {
     res.status(403).json({ message: 'Not authenticated' });
   }
 };
 
-export default passport;
-
-
 export const refreshAccessToken = async (req, res) => {
-  const { refreshToken } = req.body;
+  const { refreshToken } = req.cookies;
 
   if (!refreshToken) {
-    return res.status(400).json({ message: 'Refresh token is required' });
+    return res.status(400).json({ message: 'Refresh token is missing' });
   }
 
   try {
     const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
-
-    // Verify refresh token exists in database
     const user = await User.findById(decoded.id);
+
     if (!user || user.refreshToken !== refreshToken) {
-      return res.status(403).json({ message: 'Invalid refresh token' });
+      return res.status(403).json({ message: 'Invalid or tampered refresh token' });
     }
 
-    // Issue new access token
     const accessToken = generateAccessToken(user);
+    res.cookie('accessToken', accessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 3600 * 1000 });
 
-    res.status(200).json({
-      message: 'Token refreshed successfully',
-      accessToken,
-    });
+    res.status(200).json({ message: 'Access token refreshed successfully' });
   } catch (error) {
     res.status(403).json({ message: 'Invalid or expired refresh token' });
   }
 };
 
 export const logout = async (req, res) => {
-  if (req.user) {
-    try {
-      const user = await User.findById(req.user.id);
-      if (user) {
-        user.refreshToken = null; // Clear stored refresh token
-        await user.save();
-      }
-      req.logout((err) => {
-        if (err) return res.status(500).json({ message: 'Error logging out' });
-        res.status(200).json({ message: 'Logged out successfully' });
-      });
-    } catch (error) {
-      res.status(500).json({ message: 'Error during logout' });
+  try {
+    // Clear the refresh token from the database
+    const user = await User.findById(req.user?.id);
+    if (user) {
+      user.refreshToken = null; // Clear refresh token
+      await user.save();
     }
-  } else {
-    res.status(403).json({ message: 'Not authenticated' });
+
+    // Clear cookies
+    res.clearCookie('accessToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // Ensure secure flag for production
+      sameSite: 'strict',
+    });
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    });
+
+    // Send response to confirm logout
+    return res.status(200).json({ message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    return res.status(500).json({ message: 'Error during logout' });
   }
 };
+
+
+export default passport;

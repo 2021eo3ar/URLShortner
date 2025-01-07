@@ -7,6 +7,7 @@ import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
 import fs from 'fs';
 import path from 'path';
+import cookieParser from 'cookie-parser';
 
 import connectDB from './config/db.js';
 import redisClient from './config/redis.js';
@@ -35,7 +36,7 @@ try {
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
+app.use(cookieParser())
 // CORS Configuration
 app.use(
   cors({

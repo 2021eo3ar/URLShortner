@@ -10,15 +10,15 @@ const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your_refresh_token
  * Middleware to ensure the user is authenticated using the access token.
  */
 export const ensureAuthenticated = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader?.split(' ')[1]; // "Bearer <token>"
+  const {accessToken} = req.cookies;
+  console.log("the access Token is",accessToken)
 
-  if (!token) {
+  if (!accessToken) {
     return res.status(401).json({ error: 'Access token is missing or invalid' });
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_ACCESS_SECRET);
+    const decoded = jwt.verify(accessToken, JWT_ACCESS_SECRET);
     req.user = decoded; // Attach decoded user data to the request object
     next(); // Token is valid, proceed to the next middleware or route
   } catch (error) {

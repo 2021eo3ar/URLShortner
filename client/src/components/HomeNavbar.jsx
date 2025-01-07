@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link2 } from 'lucide-react'
-import ProfileButton from './profileButton'
+import ProfileButton from './profileButton.jsx'
 
 const HomeNavbar = () => {
   return (

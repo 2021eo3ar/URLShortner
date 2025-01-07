@@ -1,54 +1,54 @@
-import React, { useEffect, useState } from 'react';
-import { useDispatch } from 'react-redux';
-import { googleLogin, handleGoogleCallback, logout } from '../redux/authSlice';
+import React, { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { googleLogin, logout, refreshAccessToken } from '../redux/authSlice';
 import { useNavigate } from 'react-router-dom';
-import ProfileButton from './profileButton';
+import ProfileButton from './ProfileButton';
 
 const Navbar = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
+  const { user, refreshToken, accessToken, loading } = useSelector((state) => state.auth);
 
-  // Check if user is present in localStorage
-  useEffect(() => {
-    const userData = localStorage.getItem('userData');
-    if (userData) {
-      setUser(JSON.parse(userData)); // Set the user state if userData exists
-    }
-  }, []);
-
-  // Handle Google login or logout
+  // Handler to trigger login or logout based on the user's authentication status
   const handleAuthClick = () => {
     if (user) {
-      dispatch(logout()); // Dispatch logout action to clear the user state
-      localStorage.removeItem('userData'); // Clear userData from localStorage
-      setUser(null); // Set user state to null after logout
+      dispatch(logout());
+      navigate('/');
     } else {
-      dispatch(googleLogin()); // Redirect to Google login page
+      dispatch(googleLogin()); // Dispatch the googleLogin thunk to start OAuth
     }
   };
 
-  // Check the URL for the token and fetch user data after successful login
+  // Effect hook to handle user login from URL parameter after Google OAuth callback
   useEffect(() => {
     const fetchUserData = async () => {
       const urlParams = new URLSearchParams(window.location.search);
-      const token = urlParams.get('token');
-
+      const token = urlParams.get('token'); // Get token from query string
+  
       if (token) {
         try {
-          // Dispatch action to handle the callback and store user/token in Redux
-          dispatch(handleGoogleCallback(token));
-
-          // Redirect to HomePage
+          await dispatch(googleLogin(token)); // Use the token to dispatch login
+          window.history.replaceState({}, '', window.location.pathname); // Clean up URL
           navigate('/home');
         } catch (error) {
-          console.error('Error handling Google callback:', error.message);
+          console.error('Error handling login:', error.message);
         }
       }
     };
-
+  
     fetchUserData();
   }, [dispatch, navigate]);
+
+  // Effect hook to refresh access token periodically
+  useEffect(() => {
+    if (user && refreshToken) {
+      const interval = setInterval(() => {
+        dispatch(refreshAccessToken());
+      }, 15 * 60 * 1000); // Refresh every 15 minutes
+  
+      return () => clearInterval(interval);
+    }
+  }, [dispatch, user, refreshToken]);
 
   return (
     <nav className="bg-black border-b border-green-500/20 px-4 py-3">
@@ -58,13 +58,14 @@ const Navbar = () => {
         </div>
         <div className="flex items-center space-x-4">
           {user ? (
-            <ProfileButton /> // Show ProfileButton when the user is logged in
+            <ProfileButton />
           ) : (
             <button
               onClick={handleAuthClick}
               className="bg-green-500 hover:bg-green-600 text-black font-semibold px-4 py-2 rounded-md transition-colors"
+              disabled={loading} // Disable the button while loading
             >
-              Login
+              {loading ? 'Logging in...' : 'Login'} {/* Show loading state */}
             </button>
           )}
         </div>

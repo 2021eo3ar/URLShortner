@@ -11,7 +11,6 @@ const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your_refresh_token
  */
 export const ensureAuthenticated = (req, res, next) => {
   const {accessToken} = req.cookies;
-  console.log("the access Token is",accessToken)
 
   if (!accessToken) {
     return res.status(401).json({ error: 'Access token is missing or invalid' });

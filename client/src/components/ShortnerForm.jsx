@@ -7,8 +7,9 @@ const ShortnerForm = () => {
   const [formData, setFormData] = useState({
     alias: '',
     topic: '',
-    longUrl: ''
+    longUrl: '',
   });
+  const [copied, setCopied] = useState(false);
 
   const dispatch = useDispatch();
   const { shortURL, loading, error } = useSelector((state) => state.url);
@@ -16,6 +17,12 @@ const ShortnerForm = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     dispatch(createShortURL(formData));
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(shortURL.shortUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000); // Reset "Copied!" message after 2 seconds
   };
 
   return (
@@ -92,10 +99,10 @@ const ShortnerForm = () => {
               className="flex-1 px-3 py-2 rounded bg-gray-900 text-green-500 font-medium"
             />
             <button
-              onClick={() => navigator.clipboard.writeText(shortURL.shortUrl)}
+              onClick={handleCopy}
               className="px-4 py-2 bg-gray-900 text-gray-300 rounded hover:text-green-500 transition-colors"
             >
-              Copy
+              {copied ? 'Copied!' : 'Copy'}
             </button>
           </div>
         </div>

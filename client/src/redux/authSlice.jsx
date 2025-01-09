@@ -1,4 +1,3 @@
-// src/redux/authSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
@@ -10,6 +9,31 @@ const initialState = {
   loading: false,
   error: null,
 };
+
+// Async thunk for checking if the user is logged in
+export const checkLoginStatus = createAsyncThunk(
+  'auth/checkLoginStatus',
+  async (_, thunkAPI) => {
+    try {
+      const response = await axios.get(`${backendUrl}/auth/validate-session`, {
+        withCredentials: true, // Ensure cookies are sent with the request
+      });
+      const { user } = response.data;
+
+      // Save user data to localStorage for persistence
+      localStorage.setItem('userData', JSON.stringify(user));
+      return { user };
+    } catch (error) {
+      localStorage.removeItem('userData'); // Clear localStorage on failure
+      return thunkAPI.rejectWithValue({
+        message:
+          error.response?.data?.error ||
+          error.message ||
+          'Failed to validate session',
+      });
+    }
+  }
+);
 
 // Async thunk for Google login
 export const googleLogin = createAsyncThunk(
@@ -52,8 +76,8 @@ export const logout = createAsyncThunk(
   'auth/logout',
   async (_, thunkAPI) => {
     try {
-      await axios.get(`${backendUrl}/auth/logout`,{
-        withCredentials : true
+      await axios.get(`${backendUrl}/auth/logout`, {
+        withCredentials: true,
       });
       localStorage.removeItem('jwtToken');
       localStorage.removeItem('userData');
@@ -114,6 +138,19 @@ const authSlice = createSlice({
       })
       .addCase(logout.rejected, (state, action) => {
         state.error = action.payload?.message || 'Logout failed';
+      })
+      .addCase(checkLoginStatus.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(checkLoginStatus.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = action.payload.user;
+      })
+      .addCase(checkLoginStatus.rejected, (state, action) => {
+        state.loading = false;
+        state.user = null;
+        state.error = action.payload?.message || 'Failed to validate session';
       });
   },
 });

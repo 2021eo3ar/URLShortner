@@ -4,17 +4,19 @@ import axios from 'axios';
 
 const backendUrl = "http://localhost:5000";
 
-// Get the token from localStorage (if available)
-const getAuthToken = () => {
-  return localStorage.getItem('token'); // Make sure the token is saved under 'token'
-};
-
-// Axios instance with auth token
+// Axios instance setup
 const axiosInstance = axios.create({
   baseURL: backendUrl,
-  headers: {
-    'Authorization': `Bearer ${getAuthToken()}`, // Adding token to the header
-  },
+  withCredentials: true, // Ensures cookies are sent with the request
+});
+
+// Function to attach the token dynamically
+axiosInstance.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token'); // Retrieve token from localStorage
+  if (token) {
+    config.headers['Authorization'] = `Bearer ${token}`;
+  }
+  return config;
 });
 
 // Thunk for creating a shortened URL
@@ -25,7 +27,9 @@ export const createShortURL = createAsyncThunk(
       const response = await axiosInstance.post(`/api/short/shortURL`, payload);
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response ? error.response.data : error.message);
+      return rejectWithValue(
+        error.response ? error.response.data : error.message
+      );
     }
   }
 );
@@ -38,7 +42,9 @@ export const fetchURLDetails = createAsyncThunk(
       const response = await axiosInstance.get(`/api/short/${alias}`);
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response ? error.response.data : error.message);
+      return rejectWithValue(
+        error.response ? error.response.data : error.message
+      );
     }
   }
 );
@@ -64,6 +70,7 @@ const urlSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Create Short URL
       .addCase(createShortURL.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -76,6 +83,7 @@ const urlSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
+      // Fetch URL Details
       .addCase(fetchURLDetails.pending, (state) => {
         state.loading = true;
         state.error = null;

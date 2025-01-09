@@ -68,7 +68,7 @@ export const loginSuccess = async (req, res) => {
 
     res.cookie('accessToken', accessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 3600 * 1000 });
     res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 7 * 24 * 3600 * 1000 });
-    res.redirect('http://localhost:5173/home');
+    res.redirect('http://localhost:5173/');
   } else {
     res.status(403).json({ message: 'Not authenticated' });
   }
@@ -126,6 +126,34 @@ export const logout = async (req, res) => {
     return res.status(500).json({ message: 'Error during logout' });
   }
 };
+
+export const validateSession = (req, res) => {
+  try {
+    // Extract access token from either cookies or Authorization header
+    let accessToken = req.cookies?.accessToken;
+
+    if (!accessToken && req.headers.authorization) {
+      const authHeader = req.headers.authorization; // e.g., "Bearer <token>"
+      if (authHeader.startsWith('Bearer ')) {
+        accessToken = authHeader.split(' ')[1]; // Extract token after "Bearer"
+      }
+    }
+
+    if (!accessToken) {
+      return res.status(401).json({ error: 'Access token is missing' });
+    }
+
+    // Verify and decode the token
+    const decoded = jwt.verify(accessToken, JWT_ACCESS_SECRET);
+    res.status(200).json({ isAuthenticated: true, user: decoded });
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Access token has expired' });
+    }
+    res.status(401).json({ error: 'Invalid access token' });
+  }
+};
+
 
 
 export default passport;

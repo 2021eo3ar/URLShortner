@@ -1,4 +1,3 @@
-// src/redux/urlSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
@@ -49,6 +48,36 @@ export const fetchURLDetails = createAsyncThunk(
   }
 );
 
+// Thunk for fetching all URLs for the user
+export const fetchUserUrls = createAsyncThunk(
+  'url/fetchUserUrls',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get(`/api/short/getUserUrls`);
+      return response.data.urls; // Extract the list of URLs from the response
+    } catch (error) {
+      return rejectWithValue(
+        error.response ? error.response.data : error.message
+      );
+    }
+  }
+);
+
+// Thunk for deleting a URL by ID
+export const deleteUserUrl = createAsyncThunk(
+  'url/deleteUserUrl',
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.delete(`/api/short/${id}`);
+      return { id, message: response.data.message }; // Return the deleted URL ID and success message
+    } catch (error) {
+      return rejectWithValue(
+        error.response ? error.response.data : error.message
+      );
+    }
+  }
+);
+
 // URL Slice
 const urlSlice = createSlice({
   name: 'url',
@@ -56,6 +85,7 @@ const urlSlice = createSlice({
     shortURL: null,
     longURL: null,
     analytics: null,
+    userUrls: [],
     loading: false,
     error: null,
   },
@@ -64,6 +94,7 @@ const urlSlice = createSlice({
       state.shortURL = null;
       state.longURL = null;
       state.analytics = null;
+      state.userUrls = [];
       state.loading = false;
       state.error = null;
     },
@@ -94,6 +125,32 @@ const urlSlice = createSlice({
         state.analytics = action.payload.analytics;
       })
       .addCase(fetchURLDetails.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      // Fetch User URLs
+      .addCase(fetchUserUrls.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchUserUrls.fulfilled, (state, action) => {
+        state.loading = false;
+        state.userUrls = action.payload;
+      })
+      .addCase(fetchUserUrls.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      // Delete User URL
+      .addCase(deleteUserUrl.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteUserUrl.fulfilled, (state, action) => {
+        state.loading = false;
+        state.userUrls = state.userUrls.filter((url) => url._id !== action.payload.id); // Remove the deleted URL from state
+      })
+      .addCase(deleteUserUrl.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });

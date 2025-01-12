@@ -39,7 +39,7 @@ const Footer = () => {
             <ul className="space-y-4">
               <li className="flex items-center gap-2 text-gray-400">
                 <Mail className="h-4 w-4 text-green-500" />
-                info@shorify.com
+                info@shortify.com
               </li>
               <li className="flex items-center gap-2 text-gray-400">
                 <Phone className="h-4 w-4 text-green-500" />

@@ -15,6 +15,8 @@ router.get('/topic/:topic', ensureAuthenticated, getTopicAnalytics);
 // Get Overall Analytics
 router.get('/overall', ensureAuthenticated, getOverallAnalytics);
 
+
+
 // Get URL Analytics
 router.get('/:alias', ensureAuthenticated, getURLAnalytics);
 

@@ -6,7 +6,7 @@ const backendUrl = "http://localhost:5000";
 const initialState = {
   user: null,
   token: null,
-  loading: false,
+  loading: true, 
   error: null,
 };
 
@@ -16,20 +16,20 @@ export const checkLoginStatus = createAsyncThunk(
   async (_, thunkAPI) => {
     try {
       const response = await axios.get(`${backendUrl}/auth/validate-session`, {
-        withCredentials: true, // Ensure cookies are sent with the request
+        withCredentials: true,
       });
-      const { user } = response.data;
+      const { user, accessToken } = response.data;
 
-      // Save user data to localStorage for persistence
-      localStorage.setItem('userData', JSON.stringify(user));
-      return { user };
+      // Save new access token to localStorage
+      localStorage.setItem('jwtToken', accessToken);
+      return { user, token: accessToken };
     } catch (error) {
-      localStorage.removeItem('userData'); // Clear localStorage on failure
+      // Clear storage on failure
+      localStorage.removeItem('jwtToken');
+      localStorage.removeItem('userData');
+      thunkAPI.dispatch(logout()); // Dispatch logout action
       return thunkAPI.rejectWithValue({
-        message:
-          error.response?.data?.error ||
-          error.message ||
-          'Failed to validate session',
+        message: error.response?.data?.error || 'Session expired. Please log in again.',
       });
     }
   }
@@ -108,37 +108,6 @@ const authSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(googleLogin.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(googleLogin.fulfilled, (state) => {
-        state.loading = false;
-      })
-      .addCase(googleLogin.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.message || 'Google login failed';
-      })
-      .addCase(handleGoogleCallback.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(handleGoogleCallback.fulfilled, (state, action) => {
-        state.loading = false;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
-      })
-      .addCase(handleGoogleCallback.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload?.message || 'Failed to handle Google callback';
-      })
-      .addCase(logout.fulfilled, (state) => {
-        state.user = null;
-        state.token = null;
-      })
-      .addCase(logout.rejected, (state, action) => {
-        state.error = action.payload?.message || 'Logout failed';
-      })
       .addCase(checkLoginStatus.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -146,11 +115,12 @@ const authSlice = createSlice({
       .addCase(checkLoginStatus.fulfilled, (state, action) => {
         state.loading = false;
         state.user = action.payload.user;
+        state.token = action.payload.token;
       })
-      .addCase(checkLoginStatus.rejected, (state, action) => {
+      .addCase(checkLoginStatus.rejected, (state) => {
         state.loading = false;
         state.user = null;
-        state.error = action.payload?.message || 'Failed to validate session';
+        state.token = null;
       });
   },
 });

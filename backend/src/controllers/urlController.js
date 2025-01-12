@@ -5,15 +5,35 @@ import dotenv from "dotenv";
 import useragent from "useragent";
 dotenv.config();
 
-// Shorten URL
 export const createShortURL = async (req, res) => {
   const { longUrl, customAlias, topic } = req.body;
+ 
   const userId = req.user.id;
 
-  const alias = customAlias || nanoid(8);
-  const shortUrl = `${process.env.REDIRECT_URL}/${alias}`;
+  // Validate required fields
+  if (!longUrl || !userId || !topic) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
 
   try {
+    // Check if custom alias already exists
+    if (customAlias) {
+      const aliasExists = await URL.findOne({ alias: customAlias });
+      if (aliasExists) {
+        return res.status(400).json({ error: "Custom alias is already in use" });
+      }
+    }
+
+    // Check if the long URL already exists for this user
+    const existingUrl = await URL.findOne({ userId, longUrl });
+    if (existingUrl) {
+      return res.status(200).json({ shortUrl: existingUrl.shortUrl, message: "Long URL already exists" });
+    }
+    // Generate alias if not provided
+    const alias = customAlias || nanoid(8);
+    const shortUrl = `${process.env.REDIRECT_URL}/${alias}`;
+
+    // Create and save the new URL
     const newUrl = new URL({
       userId,
       longUrl,
@@ -23,12 +43,10 @@ export const createShortURL = async (req, res) => {
     });
     await newUrl.save();
 
+    // Cache the URL in Redis
     await redisClient.set(alias, longUrl);
 
-    const cachedUrl = await redisClient.get(alias);
-
-
-    res.status(201).json({ shortUrl, createdAT: Date.now() });
+    res.status(201).json({ shortUrl, createdAt: Date.now() });
   } catch (error) {
     res.status(500).json({ error: "Error creating short URL" });
   }
@@ -55,13 +73,13 @@ export const redirectShortURL = async (req, res) => {
 
     // Parsing OS and Device data from user-agent
     const ip = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-    const agent = useragent.parse(req.headers['user-agent']);
-    const osType = agent.os.toString();   // Operating system
-    const deviceType = agent.device.toString()
-    
+    const agent = useragent.parse(req.headers["user-agent"]);
+    const osType = agent.os.toString(); // Operating system
+    const deviceType = agent.device.toString();
+
     const analyticsData = await redisClient.hset(`urlAnalytics:${alias}`, {
       agent,
-      ip,   
+      ip,
       osType,
       deviceType,
     });
@@ -72,7 +90,6 @@ export const redirectShortURL = async (req, res) => {
       osType = osType || agent.os.toString();
       deviceType = deviceType || agent.device.toString();
     }
-
 
     // Step 3: Update URL analytics in the database
     const url = await URL.findOne({ alias });
@@ -99,7 +116,9 @@ export const redirectShortURL = async (req, res) => {
       }
 
       // Handle deviceType analytics
-      const deviceEntry = url.deviceType.find((entry) => entry.deviceName === deviceType);
+      const deviceEntry = url.deviceType.find(
+        (entry) => entry.deviceName === deviceType
+      );
       if (deviceEntry) {
         deviceEntry.uniqueClicks += 1;
 
@@ -150,3 +169,42 @@ export const redirectShortURL = async (req, res) => {
   }
 };
 
+
+export const getUserUrls = async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    // Fetch all URLs for the user
+    const userUrls = await URL.find({ userId }, 'shortUrl longUrl alias topic createdAt');
+
+    if (!userUrls.length) {
+      return res.status(404).json({ message: "No URLs found for this user" });
+    }
+
+    // Respond with the URLs
+    res.status(200).json({ urls: userUrls });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error fetching URLs" });
+  }
+};
+
+export const deleteUrlById = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Find and delete the URL by its ID
+    const deletedUrl = await URL.findByIdAndDelete(id);
+
+    // Check if the URL was found and deleted
+    if (!deletedUrl) {
+      return res.status(404).json({ message: 'URL not found' });
+    }
+
+    // Send success response
+    res.status(200).json({ message: 'URL deleted successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error deleting the URL' });
+  }
+};

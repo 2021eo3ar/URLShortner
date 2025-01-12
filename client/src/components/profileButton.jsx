@@ -35,7 +35,7 @@ const ProfileButton = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-gray-900 rounded-md shadow-lg py-1 border border-green-500/20">
+        <div className="absolute right-0 mt-2 w-48 bg-gray-900 rounded-md shadow-lg py-1 border border-green-500/20 z-10">
           {/* Home Button (only if not on /home) */}
           {location.pathname !== '/home' && (
             <button
@@ -47,13 +47,15 @@ const ProfileButton = () => {
             </button>
           )}
           {/* Your Short URLs */}
-          <a
-            href="#"
-            className="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-black hover:text-green-500"
-          >
-            <Link className="h-4 w-4 mr-2" />
-            Your Short URLs
-          </a>
+          {location.pathname !== '/created-urls' && (
+            <button
+              onClick={() => handleNavigation('/created-urls')}
+              className="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-black hover:text-green-500"
+            >
+              <Link className="h-4 w-4 mr-2" />
+              Your Short URLs
+            </button>
+          )}
           {/* Logout */}
           <button
             onClick={handleLogout}
